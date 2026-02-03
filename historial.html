@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Historial Intex</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: sans-serif; background: #0f172a; color: white; text-align: center; padding: 20px; }
+        .tabla-container { overflow-x: auto; margin-top: 20px; }
+        table { width: 100%; max-width: 800px; margin: 0 auto; border-collapse: collapse; background: #1e293b; }
+        th, td { padding: 12px; border: 1px solid #334155; text-align: left; }
+        th { background: #334155; color: #94a3b8; }
+        .Ingreso { color: #22c55e; font-weight: bold; }
+        .Retiro { color: #ef4444; font-weight: bold; }
+        .btn-volver { background: #64748b; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+    <a href="index.html" class="btn-volver">← Volver al Inicio</a>
+    <h2>📜 Historial de Movimientos</h2>
+
+    <div class="tabla-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha y Hora</th>
+                    <th>Tipo</th>
+                    <th>Monto</th>
+                    <th>Motivo</th>
+                </tr>
+            </thead>
+            <tbody id="tablaHistorial">
+                <tr><td colspan="4">Cargando movimientos...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, getDocs, query, orderBy, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyBE0OTLVYBSJn3bQHXdt_3Q5sIR52FTIww",
+    authDomain: "saldo-intex-marching-band.firebaseapp.com",
+    projectId: "saldo-intex-marching-band",
+    storageBucket: "saldo-intex-marching-band.firebasestorage.app",
+    messagingSenderId: "566925860224",
+    appId: "1:566925860224:web:ea8866d53316838e12f565"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+// Función de eliminación
+window.eliminarRegistro = async (id) => {
+    if (confirm("¿Estás seguro de eliminar este registro?")) {
+        try {
+            await deleteDoc(doc(db, "movimientos", id));
+            alert("Eliminado correctamente");
+            location.reload(); 
+        } catch (error) {
+            alert("Error: No tienes permisos suficientes.");
+        }
+    }
+};
+
+async function cargarDatos(esTesorero) {
+    const tabla = document.getElementById("tablaHistorial");
+    const q = query(collection(db, "movimientos"), orderBy("fecha", "desc"));
+    const querySnapshot = await getDocs(q);
+    
+    tabla.innerHTML = ""; 
+    
+    querySnapshot.forEach((docSnap) => {
+        const d = docSnap.data();
+        const id = docSnap.id;
+        const fechaTxt = d.fecha ? d.fecha.toDate().toLocaleString() : "---";
+        
+        // Creamos la celda de acción (vacia para invitado, con bote para tesorero)
+        let celdaAccion = "";
+        if (esTesorero) {
+            celdaAccion = `<td><button onclick="eliminarRegistro('${id}')" style="background:none; border:none; cursor:pointer; font-size:1.2rem;">🗑️</button></td>`;
+        } else {
+            celdaAccion = `<td>-</td>`; // Ponemos un guion para invitados
+        }
+
+        tabla.innerHTML += `
+            <tr>
+                <td>${fechaTxt}</td>
+                <td class="${d.tipo}">${d.tipo}</td>
+                <td>$${Number(d.cantidad).toFixed(2)}</td>
+                <td>${d.motivo}</td>
+                ${celdaAccion}
+            </tr>
+        `;
+    });
+}
+
+// ESTO ES LO QUE DETECTA AL TESORERO
+onAuthStateChanged(auth, (user) => {
+    console.log("Usuario actual:", user ? user.email : "Invitado"); // Para ver en consola F12
+    const esTesorero = (user && user.email === "tesorero@intex.com");
+    cargarDatos(esTesorero);
+});
+    </script>
+</body>
+</html>
